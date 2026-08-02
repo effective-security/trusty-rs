@@ -1,0 +1,28 @@
+networks:
+  private:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 168.139.68.0/24
+
+services:
+  kms1:
+    image: nsmithuk/local-kms
+    networks:
+      private:
+        ipv4_address: 168.139.68.10
+    ports:
+      - "14555:14555" # KMS
+    environment:
+      - PORT=14555
+
+  kms2:
+    image: nsmithuk/local-kms
+    networks:
+      private:
+        ipv4_address: 168.139.68.11
+    ports:
+      - "14556:14556" # KMS
+    environment:
+      - PORT=14556
