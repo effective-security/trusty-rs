@@ -44,7 +44,7 @@ const DIGEST_INFO_SHA512: &[u8] = &[
     0x00, 0x04, 0x40,
 ];
 
-/// Key purpose controlling CKA_SIGN/VERIFY vs CKA_ENCRYPT/DECRYPT (Go `KeyPurpose`).
+/// Key purpose controlling CKA_SIGN/VERIFY vs CKA_ENCRYPT/DECRYPT.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum KeyPurpose {
     /// No purpose attributes beyond defaults.
@@ -56,7 +56,7 @@ pub enum KeyPurpose {
     Encryption,
 }
 
-/// PSS salt length (Go rejects `PSSSaltLengthAuto`).
+/// PSS salt length.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PssSaltLen {
     /// Salt length equals hash length.
@@ -119,12 +119,9 @@ impl RsaPrivateKey {
 
     /// Limited validation (exponent ≥ 2 and odd).
     ///
-    /// Extends Go `Validate`, which only checks `>= 2`: a valid RSA public
-    /// exponent must also be odd (an even `e` can't be coprime with
-    /// `phi(n)`, since `phi(n)` is always even). Low real-world impact
-    /// today since this crate only generates keys with the fixed F4
-    /// exponent, but matters if a key discovered via `find_key_pair` is
-    /// ever gated on this check.
+    /// # Errors
+    ///
+    /// Returns [`Error::MalformedRsaKey`] if the public exponent is invalid.
     pub fn validate(&self) -> Result<()> {
         if !is_valid_rsa_exponent(self.public_key.e()) {
             return Err(Error::MalformedRsaKey);
@@ -133,6 +130,15 @@ impl RsaPrivateKey {
     }
 
     /// Sign `digest` using the given scheme.
+    ///
+    /// `digest` must already be the raw hash bytes matching `scheme`'s hash
+    /// algorithm (this method does not hash the message).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Closed`] if the library has been closed,
+    /// [`Error::UnsupportedRsaOptions`] for unsupported scheme options, or
+    /// [`Error::Pkcs11`] for token failures.
     pub fn sign(&self, digest: &[u8], scheme: &RsaSignScheme) -> Result<Vec<u8>> {
         let slot = slot_from_id(self.object.slot)?;
         let lib = Pkcs11Lib { inner: Arc::clone(&self.lib) };
@@ -147,6 +153,11 @@ impl RsaPrivateKey {
     }
 
     /// Decrypt `ciphertext` using the given scheme.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Closed`] if the library has been closed, or
+    /// [`Error::Pkcs11`] if decryption fails on the token.
     pub fn decrypt(&self, ciphertext: &[u8], scheme: &RsaDecryptScheme) -> Result<Vec<u8>> {
         let slot = slot_from_id(self.object.slot)?;
         let lib = Pkcs11Lib { inner: Arc::clone(&self.lib) };
@@ -251,12 +262,12 @@ impl Pkcs11Lib {
         let (pub_handle, priv_handle) = session
             .generate_key_pair(&Mechanism::RsaPkcsKeyPairGen, &public_template, &private_template)
             .map_err(|e| {
-                error!(reason = "GenerateKeyPair", err = %e);
+                error!(reason = "generate_key_pair", err = %e);
                 Error::from(e)
             })?;
 
         let pub_key = export_rsa_public_key(session, pub_handle).map_err(|e| {
-            error!(reason = "exportRSAPublicKey", err = %e);
+            error!(reason = "export_rsa_public_key", err = %e);
             e
         })?;
 

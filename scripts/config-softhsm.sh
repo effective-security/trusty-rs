@@ -182,7 +182,7 @@ fi
 # create slot if it does not exist
 softhsm2-util --show-slots --module "$HSM_MODULE" | grep -q "${HSM_SLOT}" || softhsm2-util --module "$HSM_MODULE" --init-token --free --label "${HSM_SLOT}" --force --pin ${HSM_PIN_VAL} --so-pin so${HSM_PIN_VAL}
 
-[[ ! -z "$CONFIG_FILE" ]] && echo -n { \"Manufacturer\" : \"SoftHSM\", \"Path\": \"$HSM_MODULE\", \"TokenLabel\": \"$HSM_SLOT\", \"Pin\": \"$HSM_PIN\" } > $CONFIG_FILE
+[[ ! -z "$CONFIG_FILE" ]] && echo -n { \"kind\": \"pkcs11\", \"manufacturer\" : \"SoftHSM\", \"path\": \"$HSM_MODULE\", \"token_label\": \"$HSM_SLOT\", \"pin\": \"$HSM_PIN\" } > $CONFIG_FILE
 
 # echo "HSM_PIN_VAL=${HSM_PIN_VAL}"
 cat $CONFIG_FILE

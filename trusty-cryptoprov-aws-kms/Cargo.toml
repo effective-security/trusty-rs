@@ -1,0 +1,12 @@
+[package]
+name = "trusty-cryptoprov-aws-kms"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Denis Issoupov <denis@tbilicode.com>"]
+repository = "https://github.com/effective-security/trusty-rs"
+keywords = ["crypto", "aws", "kms"]
+description = "AWS KMS signing provider for trusty-cryptoprov (stub — not yet implemented)"
+
+[dependencies]
+trusty-cryptoprov-core = { path = "../trusty-cryptoprov-core" }

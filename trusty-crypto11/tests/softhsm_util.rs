@@ -6,7 +6,6 @@ mod common;
 use trusty_crypto11::{KeyPurpose, NamedCurve};
 
 #[test]
-#[ignore = "requires SoftHSM config at TRUSTY_SOFTHSM_CONFIG or /tmp/trusty11/softhsm_unittest.json"]
 fn tokens_enum_keys_destroy() {
     let Some(lib) = common::open_lib() else {
         return;

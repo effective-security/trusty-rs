@@ -1,0 +1,15 @@
+[package]
+name = "trusty-cryptoprov-pkcs11"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Denis Issoupov <denis@tbilicode.com>"]
+repository = "https://github.com/effective-security/trusty-rs"
+keywords = ["crypto", "pkcs11", "hsm"]
+description = "PKCS#11 signing provider for trusty-cryptoprov"
+
+[dependencies]
+trusty-cryptoprov-core = { path = "../trusty-cryptoprov-core" }
+trusty-crypto11 = { path = "../trusty-crypto11" }
+secrecy = { version = "0.10", features = ["serde"] }
+url = "2"

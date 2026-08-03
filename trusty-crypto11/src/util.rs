@@ -9,7 +9,7 @@ use cryptoki::slot::Slot;
 use std::convert::TryFrom;
 use tracing::{debug, error, warn};
 
-/// Convert a raw slot id to a [`Slot`] (Go `crypto11` slots are always in range).
+/// Convert a raw slot id to a [`Slot`].
 pub(crate) fn slot_from_id(id: u64) -> Result<Slot> {
     Slot::try_from(id).map_err(Error::from)
 }

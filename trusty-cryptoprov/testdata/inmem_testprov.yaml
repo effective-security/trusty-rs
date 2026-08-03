@@ -1,0 +1,6 @@
+---
+kind: inmem
+manufacturer: inmem
+token_serial: "20764350726"
+token_label: inmem_unittest
+pin: file:inmem_pin.txt

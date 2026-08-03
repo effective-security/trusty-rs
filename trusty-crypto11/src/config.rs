@@ -12,9 +12,34 @@ use secrecy::{ExposeSecret, SecretString, zeroize::Zeroize};
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use tracing::debug;
+
+/// Process-wide lock for PKCS#11 `C_Initialize` / `C_Finalize`.
+///
+/// SoftHSM (and many other modules) keep process-global state that is not safe
+/// under concurrent initialize/finalize — Rust's parallel test harness hits this.
+pub(crate) fn pkcs11_module_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn pkcs11_live_handles() -> &'static AtomicUsize {
+    static LIVE: AtomicUsize = AtomicUsize::new(0);
+    &LIVE
+}
+
+/// Record a successful initialize (or `AlreadyInitialized`) for refcounted finalize.
+pub(crate) fn pkcs11_refcount_acquire() {
+    pkcs11_live_handles().fetch_add(1, Ordering::SeqCst);
+}
+
+/// Returns `true` when this was the last live handle and `C_Finalize` should run.
+pub(crate) fn pkcs11_refcount_release() -> bool {
+    // fetch_sub returns the previous value; finalize when we transition 1 -> 0.
+    pkcs11_live_handles().fetch_sub(1, Ordering::SeqCst) == 1
+}
 
 /// Owned copy of token config fields stored on [`Pkcs11Lib`].
 ///
@@ -66,10 +91,7 @@ impl From<FileTokenConfig> for OwnedTokenConfig {
     }
 }
 
-/// Serde shape compatible with Go JSON (PascalCase) and YAML (snake_case).
-///
-/// Like Go's `encoding/json` / yaml decode into a struct, missing string fields
-/// default to empty (Go SoftHSM unit config often omits `Model`).
+/// Serde shape compatible with JSON (PascalCase) and YAML (snake_case).
 #[derive(Debug, Clone, Deserialize)]
 pub struct FileTokenConfig {
     /// Manufacturer (`Manufacturer` / `manufacturer`).
@@ -96,7 +118,7 @@ pub struct FileTokenConfig {
     pub attributes: String,
 }
 
-/// Resolve a `file:`-prefixed PIN using a true prefix strip (not Go `TrimLeft`).
+/// Resolve a `file:`-prefixed PIN using a true prefix strip.
 ///
 /// Trailing `\r`/`\n` are trimmed from the file's contents (but not other
 /// whitespace, to avoid altering intentional leading/trailing PIN
@@ -107,7 +129,7 @@ pub struct FileTokenConfig {
 /// # Examples
 ///
 /// - `"file:/tmp/pin"` → read `/tmp/pin`
-/// - `"file:file:/tmp/pin"` → read `file:/tmp/pin` (differs from Go charset trim)
+/// - `"file:file:/tmp/pin"` → read `file:/tmp/pin`
 ///
 /// # Errors
 ///
@@ -168,17 +190,26 @@ pub fn init(cfg: impl Into<OwnedTokenConfig>) -> Result<Pkcs11Lib> {
         other => Error::from(other).context(format!("open PKCS#11 library: {}", cfg.path)),
     })?;
 
-    match ctx.initialize(CInitializeArgs::new(CInitializeFlags::OS_LOCKING_OK)) {
-        Ok(()) => {}
-        Err(CryptokiError::Pkcs11(RvError::CryptokiAlreadyInitialized, _)) => {
-            debug!(state = "initialize", result = "already_initialized");
+    // SoftHSM's C_Initialize is process-global and not safe under concurrent
+    // callers (e.g. cargo test's default thread pool). Hold the module lock
+    // only around initialize + refcount; later session ops use OS_LOCKING_OK.
+    {
+        let _guard = pkcs11_module_lock();
+        match ctx.initialize(CInitializeArgs::new(CInitializeFlags::OS_LOCKING_OK)) {
+            Ok(()) => {}
+            Err(CryptokiError::Pkcs11(RvError::CryptokiAlreadyInitialized, _)) => {
+                debug!(state = "initialize", result = "already_initialized");
+            }
+            Err(e) => {
+                return Err(
+                    Error::from(e).context(format!("initialize PKCS#11 library: {}", cfg.path))
+                );
+            }
         }
-        Err(e) => {
-            return Err(Error::from(e).context(format!("initialize PKCS#11 library: {}", cfg.path)));
-        }
+        pkcs11_refcount_acquire();
     }
 
-    let slots = tokens_info_with_ctx(&ctx).map_err(|e| e.context("TokensInfo failed"))?;
+    let slots = tokens_info_with_ctx(&ctx).map_err(|e| e.context("enumerate PKCS#11 tokens"))?;
     let mut selected: Option<SlotTokenInfo> = None;
     for slot in &slots {
         debug!(
@@ -237,8 +268,6 @@ pub fn init(cfg: impl Into<OwnedTokenConfig>) -> Result<Pkcs11Lib> {
 
 /// Load config from `path` and [`init`].
 ///
-/// Unlike the Go comment, there is no `CRYPTO11_CONFIG_PATH` override.
-///
 /// # Errors
 ///
 /// Returns [`Error::Io`]/[`Error::Config`] from [`load_token_config`], or
@@ -246,8 +275,8 @@ pub fn init(cfg: impl Into<OwnedTokenConfig>) -> Result<Pkcs11Lib> {
 pub fn configure_from_file(path: impl AsRef<Path>) -> Result<Pkcs11Lib> {
     let path_ref = path.as_ref();
     let cfg = load_token_config(path_ref)
-        .map_err(|e| e.context(format!("load p11 config: {:?}", path_ref)))?;
-    init(cfg).map_err(|e| e.context(format!("initialize p11 config: {:?}", path_ref)))
+        .map_err(|e| e.context(format!("load PKCS#11 config: {:?}", path_ref)))?;
+    init(cfg).map_err(|e| e.context(format!("initialize PKCS#11 from config: {:?}", path_ref)))
 }
 
 #[cfg(test)]
@@ -314,7 +343,7 @@ attributes: "UserName=y"
     }
 
     /// A PIN file created with a plain `echo "1234" > pinfile` has a trailing
-    /// `\n`; that must not become part of the resolved PIN. (§1.6)
+    /// `\n`; that must not become part of the resolved PIN.
     #[test]
     fn pin_file_trims_trailing_newline() {
         let mut pin_file = NamedTempFile::new().unwrap();
@@ -341,10 +370,11 @@ attributes: "UserName=y"
         assert_eq!(resolve_pin_file_prefix(&pin).unwrap().expose_secret(), " 12 34 ");
     }
 
-    /// Go `TrimLeft(pin, "file:")` treats the arg as a charset, so `file:file:/x`
-    /// collapses to `/x`. We keep a true prefix strip → `file:/x`.
+    /// Only a true `file:` prefix is stripped once. Charset-style trimming of
+    /// the characters in `"file:"` would incorrectly collapse `file:file:/x`
+    /// to `/x`; this resolver keeps a single prefix strip → `file:/x`.
     #[test]
-    fn pin_file_prefix_differs_from_go_trim_left() {
+    fn pin_file_prefix_strips_once_only() {
         let mut pin_file = NamedTempFile::new().unwrap();
         // Create a file whose path ends up as `file:<tmpdir>/pin` when prefixed twice.
         write!(pin_file, "nested").unwrap();
@@ -359,14 +389,14 @@ attributes: "UserName=y"
         let quirky = "file:file:/tmp/does-not-need-to-exist-for-prefix-test";
         let stripped = quirky.strip_prefix("file:").unwrap();
         assert_eq!(stripped, "file:/tmp/does-not-need-to-exist-for-prefix-test");
-        // Document Go TrimLeft would yield "/tmp/does-not-need-to-exist-for-prefix-test"
+
         let go_trim_left = quirky.trim_start_matches(['f', 'i', 'l', 'e', ':']);
         assert_eq!(go_trim_left, "/tmp/does-not-need-to-exist-for-prefix-test");
         assert_ne!(stripped, go_trim_left);
         let _ = inner;
     }
 
-    /// Go SoftHSM unit JSON often omits Model (and sometimes Manufacturer defaults empty).
+    /// SoftHSM unit JSON often omits Model (and sometimes Manufacturer defaults empty).
     #[test]
     fn load_json_omitted_model_defaults_empty() {
         let mut f = NamedTempFile::with_suffix(".json").unwrap();

@@ -1,3 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["trusty-crypto11", "trusty-cryptoprov"]
+members = [
+    "trusty-crypto11",
+    "trusty-cryptoprov-core",
+    "trusty-cryptoprov-inmem",
+    "trusty-cryptoprov-pkcs11",
+    "trusty-cryptoprov-aws-kms",
+    "trusty-cryptoprov-gcp-kms",
+    "trusty-cryptoprov",
+]

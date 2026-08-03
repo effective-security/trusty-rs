@@ -4,7 +4,7 @@ use std::env;
 use std::path::PathBuf;
 use trusty_crypto11::{Pkcs11Lib, configure_from_file};
 
-/// Config path: `TRUSTY_SOFTHSM_CONFIG`, else Go's `/tmp/trusty11/softhsm_unittest.json`.
+/// Config path: `TRUSTY_SOFTHSM_CONFIG`, else `/tmp/trusty11/softhsm_unittest.json`.
 pub fn softhsm_config_path() -> Option<PathBuf> {
     if let Ok(p) = env::var("TRUSTY_SOFTHSM_CONFIG") {
         let path = PathBuf::from(p);

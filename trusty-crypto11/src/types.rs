@@ -83,7 +83,7 @@ pub enum NamedCurve {
 }
 
 impl NamedCurve {
-    /// Curve name as used in Go `elliptic.Curve.Params().Name`.
+    /// Curve name
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {

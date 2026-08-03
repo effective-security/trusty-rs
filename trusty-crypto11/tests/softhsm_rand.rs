@@ -4,7 +4,6 @@
 mod common;
 
 #[test]
-#[ignore = "requires SoftHSM config at TRUSTY_SOFTHSM_CONFIG or /tmp/trusty11/softhsm_unittest.json"]
 fn gen_random_sizes() {
     let Some(lib) = common::open_lib() else {
         return;
