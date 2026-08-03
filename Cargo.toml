@@ -8,4 +8,5 @@ members = [
     "trusty-cryptoprov-aws-kms",
     "trusty-cryptoprov-gcp-kms",
     "trusty-cryptoprov",
+    "apps/hsm-tool",
 ]
