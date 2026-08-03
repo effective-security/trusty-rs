@@ -6,7 +6,14 @@ license = "MIT"
 authors = ["Denis Issoupov <denis@tbilicode.com>"]
 repository = "https://github.com/effective-security/trusty-rs"
 keywords = ["crypto", "gcp", "kms"]
-description = "GCP KMS signing provider for trusty-cryptoprov (stub — not yet implemented)"
+description = "GCP KMS signing provider for trusty-cryptoprov"
 
 [dependencies]
 trusty-cryptoprov-core = { path = "../trusty-cryptoprov-core" }
+google-cloud-kms-v1 = "1"
+google-cloud-gax = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
+bytes = "1"
+crc32c = "0.6"
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
