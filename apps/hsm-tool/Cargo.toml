@@ -1,0 +1,25 @@
+[package]
+name = "hsm-tool"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Denis Issoupov <denis@tbilicode.com>"]
+repository = "https://github.com/effective-security/trusty-rs"
+description = "CLI to work with keys backed by HSM or KMS (AWS KMS, GCP KMS, PKCS#11)"
+
+[[bin]]
+name = "hsm-tool"
+path = "src/main.rs"
+
+[dependencies]
+trusty-cryptoprov-core = { path = "../../trusty-cryptoprov-core" }
+trusty-cryptoprov-inmem = { path = "../../trusty-cryptoprov-inmem" }
+trusty-cryptoprov-pkcs11 = { path = "../../trusty-cryptoprov-pkcs11" }
+trusty-cryptoprov-aws-kms = { path = "../../trusty-cryptoprov-aws-kms" }
+trusty-cryptoprov-gcp-kms = { path = "../../trusty-cryptoprov-gcp-kms" }
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+time = { version = "0.3", features = ["formatting"] }
+uuid = { version = "1", features = ["v4"] }
