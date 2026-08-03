@@ -1,7 +1,3 @@
-//! PKCS#11 HSM adapter (`trusty-crypto11`).
-//!
-//! SoftHSM / HSM access via the [`cryptoki`] crate.
-
 #![doc = include_str!("../README.md")]
 
 pub mod common;
@@ -144,7 +140,13 @@ impl Drop for Pkcs11LibInner {
         self.closed.store(true, Ordering::Release);
         self.pools.clear_all();
         if let Some(ctx) = self.ctx.get_mut().unwrap_or_else(PoisonError::into_inner).take() {
-            let _ = ctx.finalize();
+            // SoftHSM is process-global: only the last live handle may finalize.
+            // Concurrent C_Initialize/C_Finalize also needs the module lock.
+            let _guard = crate::config::pkcs11_module_lock();
+            if crate::config::pkcs11_refcount_release() {
+                let _ = ctx.finalize();
+            }
+            // else: drop `ctx` without C_Finalize — other handles still need the module.
         }
     }
 }

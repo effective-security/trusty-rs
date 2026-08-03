@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// PKCS#11 attribute type → short name (Go `AttributeNames`).
+/// PKCS#11 attribute type → short name.
 pub fn attribute_names() -> &'static HashMap<AttributeType, &'static str> {
     static MAP: OnceLock<HashMap<AttributeType, &'static str>> = OnceLock::new();
     MAP.get_or_init(|| {
@@ -19,7 +19,7 @@ pub fn attribute_names() -> &'static HashMap<AttributeType, &'static str> {
     })
 }
 
-/// Object class → name pairs (Go `ObjectClassNames`).
+/// Object class → name pairs.
 #[must_use]
 pub fn object_class_names() -> &'static [(ObjectClass, &'static str)] {
     &[
@@ -31,15 +31,15 @@ pub fn object_class_names() -> &'static [(ObjectClass, &'static str)] {
     ]
 }
 
-/// Key type → name pairs (Go `KeyTypeNames`). DSA is listed for map parity only.
+/// Key type → name pairs. DSA is listed for display-map completeness only.
 ///
-/// Go's `CKK_ECDSA` equals cryptoki's [`KeyType::EC`].
+/// `CKK_ECDSA` equals cryptoki's [`KeyType::EC`].
 #[must_use]
 pub fn key_type_names() -> &'static [(KeyType, &'static str)] {
     &[(KeyType::RSA, "RSA"), (KeyType::DSA, "DSA"), (KeyType::DH, "DH"), (KeyType::EC, "ECDSA")]
 }
 
-/// Look up a key type display name (empty string if unknown, like Go map access).
+/// Look up a key type display name (empty string if unknown).
 #[must_use]
 pub fn key_type_name(key_type: KeyType) -> &'static str {
     key_type_names().iter().find(|(k, _)| *k == key_type).map(|(_, name)| *name).unwrap_or("")
@@ -57,7 +57,7 @@ pub fn attribute_name(attr: AttributeType) -> Option<&'static str> {
     attribute_names().get(&attr).copied()
 }
 
-/// Format a PKCS#11 URI for a private key (Go `ExportKey` shape).
+/// Format a PKCS#11 URI for a private key.
 #[must_use]
 pub fn format_pkcs11_uri(
     manufacturer: &str,
@@ -74,10 +74,14 @@ pub fn format_pkcs11_uri(
     )
 }
 
-/// Build a 32-byte key label from UTC timestamp + random bytes (Go `generateKeyLabel`).
+/// Build a 32-byte key label from UTC timestamp + random bytes.
 ///
 /// `raw` must be 32 random bytes; output is ASCII truncated to 32 bytes:
 /// `YYYYMMDDhhmmss_` + hex(raw), then `[:32]`.
+///
+/// # Errors
+///
+/// Returns [`Error::CannotGetRandomData`] if `raw` is shorter than 32 bytes.
 pub fn key_label_from_random(
     raw: &[u8],
     year: i32,
@@ -96,7 +100,11 @@ pub fn key_label_from_random(
     Ok(bytes[..32].to_vec())
 }
 
-/// Build a 32-byte key ID from random bytes (Go `generateKeyID`): hex(raw)[:32].
+/// Build a 32-byte key ID from random bytes: hex(raw)[:32].
+///
+/// # Errors
+///
+/// Returns [`Error::CannotGetRandomData`] if `raw` is shorter than 32 bytes.
 pub fn key_id_from_random(raw: &[u8]) -> Result<Vec<u8>> {
     if raw.len() < 32 {
         return Err(Error::CannotGetRandomData);

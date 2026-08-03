@@ -8,7 +8,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, PoisonError};
 use tracing::debug;
 
-/// Maximum pooled sessions per slot (Go `maxSessionsChan`).
+/// Maximum pooled sessions per slot.
 pub const MAX_SESSIONS: usize = 1024;
 
 /// Pool of exclusive RW sessions for one slot.
@@ -23,8 +23,6 @@ impl SessionPool {
     }
 
     /// Return a session if under capacity; otherwise drop/close it (non-blocking).
-    ///
-    /// Intentional divergence from Go, which blocks on a full buffered channel send.
     fn release(&mut self, session: Session) {
         if self.sessions.len() < MAX_SESSIONS {
             self.sessions.push_back(session);
@@ -56,10 +54,10 @@ impl SessionPools {
     }
 
     pub(crate) fn setup(&self, slot_id: u64) {
-        // Deliberately non-poisoning (mirrors Go's mutexes): a panic while
-        // holding this lock shouldn't wedge the pool for the process
-        // lifetime, and PKCS#11 sessions don't offer strong exception-safety
-        // guarantees to preserve anyway.
+        // Deliberately non-poisoning: a panic while holding this lock
+        // should not wedge the pool for the process lifetime, and PKCS#11
+        // sessions do not offer strong exception-safety guarantees to
+        // preserve anyway.
         let mut map = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
         map.entry(slot_id).or_default();
     }
@@ -107,6 +105,10 @@ impl SessionPools {
 }
 
 /// Open a new RW serial session (low-level; most callers use the pool).
+///
+/// # Errors
+///
+/// Returns [`Error::Pkcs11`] if the session cannot be opened.
 pub fn open_rw_session(ctx: &Pkcs11, slot: Slot) -> Result<Session> {
     ctx.open_rw_session(slot).map_err(Error::from)
 }

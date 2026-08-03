@@ -23,16 +23,10 @@ If the code is not fully optimized before handing off to the user, you will be f
 - Use `serde` with `serde_json` for JSON serialization/deserialization.
 - When reporting errors to the console, use `tracing::error!` or `log::error!` instead of `println!`.
 
-## Conventions
-
-- **Edition:** 2024
-- **Crate names:** `trusty-<go-package>` (e.g. `trusty-crypto11`)
-- **Layout:** `crates/trusty-<name>/` with workspace-root `Cargo.toml`
-- **Errors:** `thiserror` for library error types; avoid panics on expected failure paths
-- **Tests:** unit tests in crate; parity cases documented in `go2rs/migration/packages/<pkg>/TEST.md`
-
 ## Code Style and Formatting
 
+- **Edition:** 2024
+- **Errors:** `thiserror` for library error types; avoid panics on expected failure paths
 - **MUST** use meaningful, descriptive variable and function names
 - **MUST** follow Rust API Guidelines and idiomatic Rust conventions
 - **MUST** use 4 spaces for indentation (never tabs)

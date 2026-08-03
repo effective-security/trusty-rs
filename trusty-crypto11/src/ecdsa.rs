@@ -33,7 +33,15 @@ impl EcdsaPrivateKey {
         &self.public_key
     }
 
-    /// Sign `digest`; returns DER-encoded ECDSA signature.
+    /// Sign `digest`; returns a DER-encoded ECDSA signature (ASN.1 `R`/`S`).
+    ///
+    /// `digest` must already be the raw hash bytes (this method does not
+    /// hash the message).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Closed`] if the library has been closed, or
+    /// [`Error::Pkcs11`] / encoding errors if signing or DER marshalling fails.
     pub fn sign(&self, digest: &[u8]) -> Result<Vec<u8>> {
         let slot = slot_from_id(self.object.slot)?;
         let lib = Pkcs11Lib { inner: Arc::clone(&self.lib) };
@@ -124,12 +132,12 @@ impl Pkcs11Lib {
         let (pub_handle, priv_handle) = session
             .generate_key_pair(&Mechanism::EccKeyPairGen, &public_template, &private_template)
             .map_err(|e| {
-                error!(reason = "GenerateKeyPair", err = %e);
+                error!(reason = "generate_key_pair", err = %e);
                 Error::from(e)
             })?;
 
         let pub_key = export_ecdsa_public_key(session, pub_handle).map_err(|e| {
-            error!(reason = "exportECDSAPublicKey", err = %e);
+            error!(reason = "export_ecdsa_public_key", err = %e);
             e
         })?;
 
@@ -173,7 +181,7 @@ const OID_SECP384R1_DER: &[u8] = &[0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22];
 /// DER-encoded `secp521r1` OID (1.3.132.0.35) for `CKA_EC_PARAMS`.
 const OID_SECP521R1_DER: &[u8] = &[0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23];
 
-/// DER-encoded named curve OID (Go `wellKnownCurves`).
+/// DER-encoded named curve OID.
 pub(crate) fn curve_oid_der(curve: NamedCurve) -> Result<Vec<u8>> {
     Ok(match curve {
         NamedCurve::P224 => OID_SECP224R1_DER.to_vec(),
@@ -298,8 +306,8 @@ mod tests {
         p
     }
 
-    /// Round-trip check for the `der`-crate-based replacement (§1.4) of the
-    /// hand-rolled OCTET STRING parser: short-form length (P-256-shaped).
+    /// Round-trip check for the `der`-crate OCTET STRING parser: short-form
+    /// length (P-256-shaped).
     #[test]
     fn parse_ec_point_der_short_form_octet_string() {
         let point = sec1_point(64); // 65 bytes, DER length fits in one byte

@@ -3,7 +3,7 @@
 /// Result alias for this crate.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Public error type mirroring Go `crypto11` sentinel failures plus I/O/config.
+/// Public error type for PKCS#11 adapter failures, I/O, and config errors.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -82,7 +82,7 @@ pub enum Error {
 }
 
 impl Error {
-    /// Wrap `self` with additional context (Go `WithMessage` style).
+    /// Wrap `self` with additional context.
     pub fn context(self, context: impl Into<String>) -> Self {
         Error::Context { context: context.into(), source: Box::new(self) }
     }

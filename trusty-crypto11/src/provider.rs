@@ -1,4 +1,4 @@
-//! SoftHSM-friendly loader and enumeration APIs (no cryptoprov dependency).
+//! Token and key enumeration APIs for SoftHSM and other PKCS#11 modules.
 
 use crate::Pkcs11Lib;
 use crate::common::{key_type_name, object_class_name};
@@ -10,7 +10,7 @@ use crate::util::{extract_id_label_type_class, find_key_handle, slot_from_id};
 use cryptoki::object::{Attribute, AttributeType, ObjectClass};
 use tracing::warn;
 
-/// Token information for enumeration (mirrors Go cryptoprov.TokenInfo shape).
+/// Token information for enumeration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenInfo {
     /// Slot ID.
@@ -40,7 +40,7 @@ impl From<&SlotTokenInfo> for TokenInfo {
     }
 }
 
-/// Key information for enumeration (mirrors Go cryptoprov.KeyInfo shape).
+/// Key information for enumeration.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct KeyInfo {
     /// CKA_ID.
@@ -55,7 +55,7 @@ pub struct KeyInfo {
     pub public_key: String,
 }
 
-/// Load a PKCS#11 provider from token config (Go `LoadProvider` without registry).
+/// Load a PKCS#11 provider from token config.
 ///
 /// # Errors
 ///
@@ -185,7 +185,7 @@ impl Pkcs11Lib {
         if include_public {
             public_key = self.get_public_key_pem(slot_id, &key_id_str).map_err(|e| {
                 e.context(format!(
-                    "reason='failed on GetPublicKey', slotID={slot_id}, keyID={key_id_str:?}"
+                    "export public key PEM failed slot_id={slot_id} key_id={key_id_str:?}"
                 ))
             })?;
         }

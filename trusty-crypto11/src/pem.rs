@@ -1,4 +1,4 @@
-//! Temporary SPKI/PEM encode for public keys (until `trusty-certutil`).
+//! Encode public keys as SPKI PEM (`PUBLIC KEY`).
 
 use crate::error::{Error, Result};
 use crate::types::{EcdsaPublicKey, PublicKey};
@@ -12,7 +12,13 @@ const OID_EC_PUBLIC_KEY: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.84
 /// OID for `secp224r1` (1.3.132.0.33).
 const OID_SECP224R1: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.132.0.33");
 
-/// Encode a public key as PEM (`PUBLIC KEY` / SPKI), matching Go certutil usage.
+/// Encode a public key as PEM (`PUBLIC KEY` / SPKI).
+///
+/// Supports RSA and ECDSA public keys held in [`PublicKey`].
+///
+/// # Errors
+///
+/// Returns [`Error`] if SPKI DER encoding or PEM wrapping fails.
 pub fn encode_public_key_pem(pub_key: &PublicKey) -> Result<String> {
     let der = match pub_key {
         PublicKey::Rsa(rsa) => encode_rsa_spki(rsa)?,

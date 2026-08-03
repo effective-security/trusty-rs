@@ -1,0 +1,21 @@
+[package]
+name = "trusty-cryptoprov-core"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Denis Issoupov <denis@tbilicode.com>"]
+repository = "https://github.com/effective-security/trusty-rs"
+keywords = ["crypto", "provider"]
+description = "Crypto provider traits, common types, and errors (no provider SDK dependencies)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+thiserror = "2"
+tracing = "0.1"
+secrecy = { version = "0.10", features = ["serde"] }
+zeroize = "1"
+
+[dev-dependencies]
+tempfile = "3"

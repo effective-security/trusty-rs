@@ -1,0 +1,27 @@
+[package]
+name = "trusty-cryptoprov-inmem"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Denis Issoupov <denis@tbilicode.com>"]
+repository = "https://github.com/effective-security/trusty-rs"
+keywords = ["crypto", "provider"]
+description = "In-memory (software) RSA/ECDSA signing provider for trusty-cryptoprov"
+
+[dependencies]
+trusty-cryptoprov-core = { path = "../trusty-cryptoprov-core" }
+pem = "4.0.0"
+rsa = { version = "0.9", features = ["pem", "sha2", "getrandom"] }
+p256 = { version = "0.14.0", features = ["ecdsa", "pkcs8", "pem"] }
+p384 = { version = "0.14.0", features = ["ecdsa", "pkcs8", "pem"] }
+p521 = { version = "0.14.0", features = ["ecdsa", "pkcs8", "pem"] }
+# rsa 0.9 still uses digest 0.10; keep a digest-0.10 sha1 for PKCS#1/PSS
+# scheme types.
+sha1_legacy = { package = "sha1", version = "0.10", features = [
+    "oid",
+], default-features = false }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+sha2 = { version = "0.11.0", features = ["oid"] }

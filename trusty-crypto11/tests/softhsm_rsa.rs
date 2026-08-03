@@ -1,4 +1,4 @@
-//! SoftHSM RSA parity tests (ignored without config).
+//! SoftHSM RSA integration tests (ignored without config).
 
 #[path = "common/mod.rs"]
 mod common;
@@ -7,7 +7,6 @@ use sha2::{Digest, Sha256};
 use trusty_crypto11::{DigestAlgorithm, KeyPurpose, PrivateKey, RsaSignScheme};
 
 #[test]
-#[ignore = "requires SoftHSM config at TRUSTY_SOFTHSM_CONFIG or /tmp/trusty11/softhsm_unittest.json"]
 fn rsa_generate_sign_find_destroy() {
     let Some(lib) = common::open_lib() else {
         return;
