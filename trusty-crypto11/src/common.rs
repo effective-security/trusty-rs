@@ -100,7 +100,7 @@ pub fn key_label_from_random(
     Ok(bytes[..32].to_vec())
 }
 
-/// Build a 32-byte key ID from random bytes: hex(raw)[:32].
+/// Build a 32-byte key ID from random bytes: `hex(raw)[..32]`.
 ///
 /// # Errors
 ///

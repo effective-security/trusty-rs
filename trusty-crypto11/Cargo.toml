@@ -1,10 +1,10 @@
 [package]
 name = "trusty-crypto11"
-version = "0.1.0"
-edition = "2024"
-license = "MIT"
-authors = ["Denis Issoupov <denis@tbilicode.com>"]
-repository = "https://github.com/effective-security/trusty-rs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
 keywords = ["crypto", "pkcs11"]
 description = "PKCS#11 HSM adapter"
 

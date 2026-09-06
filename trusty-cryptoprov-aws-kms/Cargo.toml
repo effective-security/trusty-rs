@@ -1,15 +1,15 @@
 [package]
 name = "trusty-cryptoprov-aws-kms"
-version = "0.1.0"
-edition = "2024"
-license = "MIT"
-authors = ["Denis Issoupov <denis@tbilicode.com>"]
-repository = "https://github.com/effective-security/trusty-rs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
 keywords = ["crypto", "aws", "kms"]
 description = "AWS KMS signing provider for trusty-cryptoprov"
 
 [dependencies]
-trusty-cryptoprov-core = { path = "../trusty-cryptoprov-core" }
+trusty-cryptoprov-core.workspace = true
 aws-config = "1"
 aws-sdk-kms = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }

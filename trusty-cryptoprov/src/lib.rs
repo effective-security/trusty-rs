@@ -19,14 +19,14 @@ pub use keys::{
 };
 pub use tls::TlsKeyMaterial;
 #[cfg(feature = "aws-kms")]
-pub use trusty_cryptoprov_aws_kms::{AwsKmsConfig, AwsKmsProvider};
+pub use trusty_cryptoprov_aws_kms::AwsKmsProvider;
 pub use trusty_cryptoprov_core::{
     Crypto, DigestAlgorithm, Error, FileTokenConfig, KeyGenerator, KeyInfo, KeyManager, KeyPurpose,
     NamedCurve, Provider, ProviderLoader, ProviderRegistry, PssSaltLen, Result, RsaSignScheme,
     Signer, TokenConfig, TokenInfo, load_token_config,
 };
 #[cfg(feature = "gcp-kms")]
-pub use trusty_cryptoprov_gcp_kms::{GcpKmsConfig, GcpKmsProvider};
+pub use trusty_cryptoprov_gcp_kms::GcpKmsProvider;
 #[cfg(feature = "inmem")]
 pub use trusty_cryptoprov_inmem::{InmemProvider, PROVIDER_NAME as INMEM_PROVIDER_NAME};
 #[cfg(feature = "pkcs11")]

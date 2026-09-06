@@ -114,7 +114,7 @@ impl Pkcs11Lib {
     ///
     /// `Pkcs11Lib` is `Clone`, and PKCS#11's `C_Finalize` is process-wide with
     /// no refcount of its own — calling it while another clone is mid-session
-    /// (e.g. inside [`Self::with_session`]) is undefined behavior at the FFI
+    /// (e.g. inside `Self::with_session`) is undefined behavior at the FFI
     /// boundary. To avoid that race, this only finalizes when `self` is the
     /// last live handle (`Arc::strong_count(&self.inner) == 1`); otherwise it
     /// hands the handle back unchanged via `Err` and does nothing. Either
