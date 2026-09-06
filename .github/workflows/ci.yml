@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-noop:
+    name: Detect no-op changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.noop.outputs.should_skip }}
+      paths_result: ${{ steps.noop.outputs.paths_result }}
+    steps:
+      - name: Detect duplicate or documentation-only changes
+        id: noop
+        uses: fkirc/skip-duplicate-actions@v5.3.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          paths_ignore: >-
+            ["**/*.md", "**/*.png", "**/*.jpg", "**/*.jpeg",
+            "**/Documentation/**"]
+          do_not_skip: '["push"]'
+          concurrent_skipping: false
+          paths_filter: |
+            rust:
+              paths:
+                - "**/*.rs"
+                - "**/Cargo.toml"
+                - "Cargo.lock"
+                - "rustfmt.toml"
+            automation:
+              paths:
+                - ".github/**"
+                - "Makefile"
+                - "scripts/**"
+
+  format:
+    name: Format
+    needs: detect-noop
+    if: needs.detect-noop.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  lint:
+    name: Clippy
+    needs: detect-noop
+    if: needs.detect-noop.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  test:
+    name: Build, test, and document
+    needs: detect-noop
+    if: needs.detect-noop.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+      - name: Build workspace
+        run: cargo build --workspace --all-targets --all-features
+      - name: Test workspace
+        run: cargo test --workspace --all-features
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --all-features --no-deps
+
+  softhsm:
+    name: SoftHSM integration
+    needs: detect-noop
+    if: needs.detect-noop.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install SoftHSM
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes opensc softhsm2
+      - name: Configure SoftHSM
+        run: make hsmconfig
+      - name: Test PKCS#11 adapter
+        env:
+          TRUSTY_SOFTHSM_CONFIG: /tmp/trusty11/softhsm_unittest.json
+        run: >-
+          cargo test -p trusty-crypto11
+          --test softhsm_rsa
+          --test softhsm_ecdsa
+          --test softhsm_rand
+          --test softhsm_util
+          -- --test-threads=1
+      - name: Test PKCS#11 provider
+        env:
+          TRUSTY_SOFTHSM_CONFIG: /tmp/trusty11/softhsm_unittest.json
+        run: >-
+          cargo test -p trusty-cryptoprov
+          --features pkcs11
+          --test load_softhsm
+          --test pkcs11_sign
+          -- --test-threads=1

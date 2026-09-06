@@ -138,7 +138,7 @@ impl Provider for Pkcs11Provider {
 
 /// PKCS#11-backed [`Signer`] (any compatible HSM via `trusty-crypto11`).
 ///
-/// Separate from the software [`trusty_cryptoprov_inmem::SoftwareKey`] types —
+/// Separate from the software `trusty_cryptoprov_inmem::SoftwareKey` types —
 /// the two never share a concrete type.
 ///
 /// `id`/`label` are captured at construction time (from

@@ -1,0 +1,82 @@
+name: Set tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Semver tag; defaults to the workspace version
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Validate release tag
+        id: release
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+        run: |
+          version="$(
+            cargo metadata --no-deps --format-version 1 |
+              python3 -c '
+          import json
+          import sys
+
+          versions = {package["version"] for package in json.load(sys.stdin)["packages"]}
+          if len(versions) != 1:
+              sys.exit(f"workspace packages have different versions: {sorted(versions)}")
+          print(versions.pop())
+          '
+          )"
+          expected_tag="v${version}"
+          release_tag="${REQUESTED_TAG:-$expected_tag}"
+
+          if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "tag must be valid semver prefixed with v: $release_tag" >&2
+            exit 1
+          fi
+          if [[ "$release_tag" != "$expected_tag" ]]; then
+            echo "tag $release_tag does not match workspace version $expected_tag" >&2
+            exit 1
+          fi
+          if git rev-parse --verify --quiet "refs/tags/$release_tag"; then
+            echo "tag already exists: $release_tag" >&2
+            exit 1
+          fi
+
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Create tag
+        uses: actions/github-script@v9
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        with:
+          script: |
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${process.env.RELEASE_TAG}`,
+              sha: process.env.RELEASE_SHA,
+            });
+
+  validate-release:
+    name: Validate release
+    needs: create-tag
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.create-tag.outputs.tag }}

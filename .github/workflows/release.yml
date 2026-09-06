@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_call:
+    inputs:
+      tag:
+        description: Existing release tag to validate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate crates
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+      - name: Validate tag and workspace versions
+        run: |
+          version="$(
+            cargo metadata --no-deps --format-version 1 |
+              python3 -c '
+          import json
+          import sys
+
+          versions = {package["version"] for package in json.load(sys.stdin)["packages"]}
+          if len(versions) != 1:
+              sys.exit(f"workspace packages have different versions: {sorted(versions)}")
+          print(versions.pop())
+          '
+          )"
+          if [[ "$RELEASE_TAG" != "v$version" ]]; then
+            echo "tag $RELEASE_TAG does not match workspace version v$version" >&2
+            exit 1
+          fi
+          echo "CRATE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Test workspace
+        run: cargo test --workspace --all-features
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --all-features --no-deps
+      - name: Package crates in dependency order
+        run: |
+          registry_has() {
+            curl \
+              --fail \
+              --silent \
+              --retry 3 \
+              "https://crates.io/api/v1/crates/$1/$CRATE_VERSION" \
+              >/dev/null
+          }
+
+          package_if_dependencies_exist() {
+            local crate="$1"
+            shift
+
+            for dependency in "$@"; do
+              if ! registry_has "$dependency"; then
+                echo "::notice::Skipping $crate package until $dependency@$CRATE_VERSION is published"
+                return
+              fi
+            done
+
+            cargo package --no-verify -p "$crate"
+          }
+
+          cargo package --no-verify -p trusty-cryptoprov-core
+          cargo package --no-verify -p trusty-crypto11
+          package_if_dependencies_exist \
+            trusty-cryptoprov-inmem trusty-cryptoprov-core
+          package_if_dependencies_exist \
+            trusty-cryptoprov-aws-kms trusty-cryptoprov-core
+          package_if_dependencies_exist \
+            trusty-cryptoprov-gcp-kms trusty-cryptoprov-core
+          package_if_dependencies_exist \
+            trusty-cryptoprov-pkcs11 trusty-cryptoprov-core trusty-crypto11
+          package_if_dependencies_exist \
+            trusty-cryptoprov \
+            trusty-cryptoprov-core \
+            trusty-cryptoprov-inmem \
+            trusty-cryptoprov-pkcs11 \
+            trusty-cryptoprov-aws-kms \
+            trusty-cryptoprov-gcp-kms
+          package_if_dependencies_exist \
+            hsm-tool \
+            trusty-cryptoprov-core \
+            trusty-cryptoprov-inmem \
+            trusty-cryptoprov-pkcs11 \
+            trusty-cryptoprov-aws-kms \
+            trusty-cryptoprov-gcp-kms
+      - name: Dry-run crates.io publication
+        run: |
+          registry_has() {
+            curl \
+              --fail \
+              --silent \
+              --retry 3 \
+              "https://crates.io/api/v1/crates/$1/$CRATE_VERSION" \
+              >/dev/null
+          }
+
+          dry_run_if_dependencies_exist() {
+            local crate="$1"
+            shift
+
+            for dependency in "$@"; do
+              if ! registry_has "$dependency"; then
+                echo "::notice::Skipping $crate dry-run until $dependency@$CRATE_VERSION is published"
+                return
+              fi
+            done
+
+            cargo publish --dry-run -p "$crate"
+          }
+
+          cargo publish --dry-run -p trusty-cryptoprov-core
+          cargo publish --dry-run -p trusty-crypto11
+          dry_run_if_dependencies_exist \
+            trusty-cryptoprov-inmem trusty-cryptoprov-core
+          dry_run_if_dependencies_exist \
+            trusty-cryptoprov-aws-kms trusty-cryptoprov-core
+          dry_run_if_dependencies_exist \
+            trusty-cryptoprov-gcp-kms trusty-cryptoprov-core
+          dry_run_if_dependencies_exist \
+            trusty-cryptoprov-pkcs11 trusty-cryptoprov-core trusty-crypto11
+          dry_run_if_dependencies_exist \
+            trusty-cryptoprov \
+            trusty-cryptoprov-core \
+            trusty-cryptoprov-inmem \
+            trusty-cryptoprov-pkcs11 \
+            trusty-cryptoprov-aws-kms \
+            trusty-cryptoprov-gcp-kms
+          dry_run_if_dependencies_exist \
+            hsm-tool \
+            trusty-cryptoprov-core \
+            trusty-cryptoprov-inmem \
+            trusty-cryptoprov-pkcs11 \
+            trusty-cryptoprov-aws-kms \
+            trusty-cryptoprov-gcp-kms

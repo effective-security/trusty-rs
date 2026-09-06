@@ -19,6 +19,8 @@ help:
 build_all:
 	cd trusty-crypto11 && cargo build
 	cd trusty-cryptoprov && cargo build --all-features
+	# build for hsm-tool
+	cd apps/hsm-tool && cargo build
 
 hsmconfig:
 	echo "*** Running hsmconfig"
